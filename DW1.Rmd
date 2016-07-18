@@ -1,0 +1,152 @@
+---
+title: "Springboard: Foundations of Data Science"
+subtitle: "Data Wrangling Part 1"
+author: "Tom Skawski II"
+date: "July 12-15, 2016"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+# no idea what this does or why it's here, but I'm leaving it.
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+### Step 00 - Prepare Directory and load packages
+```{r, message=FALSE}
+# Mac:
+# setwd("~tomskawski/Dropbox/Data Science/Data Wrangling")
+# PC
+setwd("C:/Users/tskawski.WESTERN/Desktop/Dropbox/Data Science/Data Wrangling")
+
+# install.packages("tidyr")
+library("tidyr")
+
+# install.packages("dplyr")
+library("dplyr")
+```
+
+
+### Step 0 - Load (and check) the Data
+```{r}
+mydata <- read.csv("refine_original.csv")
+# read.csv pulls csv data in well, but as factors, not characters. Factors don't play nice.
+# That took FOREVER to figure out
+```
+
+```{r}
+# To check class of columns. s/b character; if not, convert
+sapply(mydata, class)
+```
+
+
+```{r}
+# "[ ]" keeps data.frame, lapply changes all columns
+mydata[] <- lapply(mydata, as.character)
+```
+
+```{r}
+# Re-check columns
+sapply(mydata, class)
+
+# Table is finally playing nice.
+```
+
+### Step 1 - Clean up Brand Names
+```{r}
+# Group to check brand names; yields 19 separate spellings of four brands.
+mydata %>% group_by(company) %>% summarise(city = n())
+```
+
+
+```{r}
+# regex syntax was unbelievably cumbersome.
+# Finally got there after research and a lot of trial and error
+
+# Check for words that start with "p".
+# '^p' works, but \\bp\\w+ is actually better
+# All results are same brand (phillips, but later gets spelled with one l)
+# value prints data, FALSE gives position
+grep("^p", mydata$company, ignore.case = TRUE, value = TRUE)
+
+# Same syntax as 'p', but now for 'a'. Note the entry 'ak zo', which has a space
+grep("\\ba\\w+", mydata$company, ignore.case = TRUE, value = TRUE)
+
+# van houten is tricky because it has a space.
+#\\s\\w+ is for extra word
+grep("\\bv\\w+\\s\\w+", mydata$company, ignore.case = TRUE, value = TRUE)
+
+grep("\\bu\\w+", mydata$company, ignore.case = TRUE, value = TRUE)
+
+```
+
+```{r}
+# Once greps were set, time for gsubs based on those greps
+
+# \\b is a word boundary. Since it's at the beginning, this will be words that start with...
+# \\b(p\f) = words that start with p or f (f added for the entry that says 'fillips')
+# \\w+ = adds all word characters (w) no matter how many (+)
+mydata$company <- gsub("\\b(p|f)\\w+", "philips", mydata$company, ignore.case = TRUE)
+
+# After some trial and error, this regex syntax fixes all of the axzo variations
+mydata$company <- gsub("(\\ba\\w+|\\ba\\w+\\s\\w+)", "akzo", mydata$company, ignore.case = TRUE)
+
+# van houten, minding the space
+mydata$company <- gsub("\\bv\\w+\\s\\w+", "van houten", mydata$company, ignore.case = TRUE)
+
+# unilever
+mydata$company <- gsub("\\bu\\w+", "unilever", mydata$company, ignore.case = TRUE)
+
+```
+
+```{r}
+# Final check. 4 results, only unilever remains
+mydata %>% group_by(company) %>% summarise(city = n())
+
+# Step 1 is complete. Not sure if a function would have been faster, but this is how I got this part completed.
+```
+
+### Step 2 - Separate product code and number
+```{r}
+# Used 'separate' function, once I found it.
+mydata <- separate(mydata, Product.code...number, c("Prod.code", "Prod.number"), sep = "-")
+mydata %>% group_by(Prod.code) %>% summarise(Prod.number = n())
+
+```
+
+### Step 3 - Add product categories
+```{r}
+Prod.code <- c("p", "q", "v", "x")
+Prod.cat <- c("Smartphone", "Tablet", "TV", "Laptop")
+merge = data_frame(Prod.code, Prod.cat)
+mydata <- left_join(mydata, merge)
+
+```
+
+### Step 4 - Add full address for geocoding
+```{r}
+mydata <- unite(mydata, full_address, address:country, sep = ",")
+# not sure if this should be a new, combined column, or an additional column
+```
+
+### Step 5 - Create dummy variables
+```{r}
+mydata$company_philips <- as.numeric(mydata$company == "philips")
+mydata$company_akzo <- as.numeric(mydata$company == "akzo")
+mydata$company_unilever <- as.numeric(mydata$company == "unilever")
+mydata$company_van_houten <- as.numeric(mydata$company == "van houten")
+mydata$product_smartphone <- as.numeric(mydata$Prod.cat == "Smartphone")
+mydata$product_tv <- as.numeric(mydata$Prod.cat == "TV")
+mydata$product_laptop <- as.numeric(mydata$Prod.cat == "Laptop")
+mydata$product_tablet <- as.numeric(mydata$Prod.cat == "Tablet")
+
+```
+
+### Step 6 - Submit to github
+```{r}
+
+```
+
+```{r pressure, echo=FALSE}
+# Note that the `echo = FALSE` parameter was added to the code chunk to prevent printing of the R code that generated the plot.
+```
+
